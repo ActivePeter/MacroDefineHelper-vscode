@@ -74,7 +74,7 @@
 
    如下：
 
-   ![image-20210613195312288](C:\Users\sjjmw\AppData\Roaming\Typora\typora-user-images\image-20210613195312288.png)
+   ![image-20210613200523702](https://hanbaoaaa.xyz/tuchuang/images/2021/06/13/image-20210613200523702.png)
 
    我的oled库中需要一个宏定义值
 
@@ -86,17 +86,17 @@
 
    如果需要特定的头文件名，可以添加如下语句
 
-   ![image-20210613195854159](C:\Users\sjjmw\AppData\Roaming\Typora\typora-user-images\image-20210613195854159.png)
+   ![image-20210613195854159](https://hanbaoaaa.xyz/tuchuang/images/2021/06/13/image-20210613195854159.png)
 
 3. ### 生成配置树
 
    右键侧边栏 或 输入指令, 选择第二项
 
-   ![image-20210613200017719](C:\Users\sjjmw\AppData\Roaming\Typora\typora-user-images\image-20210613200017719.png)
+   ![image-20210613200017719](https://hanbaoaaa.xyz/tuchuang/images/2021/06/13/image-20210613200017719.png)
 
    我们会获得一个配置树
 
-   ![image-20210613200107695](C:\Users\sjjmw\AppData\Roaming\Typora\typora-user-images\image-20210613200107695.png)
+   ![image-20210613200107695](https://hanbaoaaa.xyz/tuchuang/images/2021/06/13/image-20210613200107695.png)
 
    我们可以轻松的修改宏的值，然后保存
 
