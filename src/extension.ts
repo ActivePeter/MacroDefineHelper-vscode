@@ -6,12 +6,14 @@ import * as fs from 'fs';
 import { isNumber, isString } from 'util';
 import { type } from 'os';
 import { stringify } from 'querystring';
+import * as log from './log'
 
 var confValues = {
 	libConfFilePath: "",
 	describeFileFolderName: "",
 	describeFileName: "",
-	libSrcPath: ""
+	libSrcPath: "",
+	defaultConfFileName: "",
 }
 
 var finalTree = {}
@@ -19,6 +21,7 @@ const modelConfigText = [
 	'//此为模板，请编辑后删除',
 	"//{",
 	'//    "libConfFilePath": "填写最终生成头文件的位置",',
+	'//    "defaultConfFileName": "填写默认头文件名称",',
 	'//    "libSrcPath": "通用库源码路径",',
 	'//    "describeFileFolderName": "描述文件的文件夹名",',
 	'//    "describeFileName": "描述文件的文件名"',
@@ -140,6 +143,7 @@ function editSettingFile(uristr: string) {
 	)
 }
 var definelist = [{}]
+var specialDefineList: any = {}
 function findConfInObj(label: string, obj: object) {
 	if (typeof obj == 'string') {
 		console.log(label, obj)
@@ -162,44 +166,126 @@ function findConfInObj(label: string, obj: object) {
 		})
 		// }
 	} else {
+		let specialHead = ""
+		//1.find for head= key
 		for (var i = 0; i < keys.length; i++) {
 			// console.log(objAny[keys[i]])
 			// if (objAny[keys[i]] == undefined) {
 			// 	console.log(objAny)
 			// } else {
-			findConfInObj(keys[i], objAny[keys[i]])
+			if (keys[i].indexOf("header=") > -1) {
+				specialHead = keys[i].substring("header=".length)
+				log.app("special head " + specialHead)
+				break
+			}
 			// }
 		}
+		if (specialHead.length > 0) {
+			specialDefineList[specialHead] = []
+
+
+			for (var i = 0; i < keys.length; i++) {
+				// console.log(objAny[keys[i]])
+				// if (objAny[keys[i]] == undefined) {
+				// 	console.log(objAny)
+				// } else {
+				if (keys[i].indexOf("header=") < 0) {
+					specialDefineList[specialHead].push({
+						label: keys[i],
+						value: objAny[keys[i]]
+					})
+				}
+				// }
+			}
+		} else {
+			for (var i = 0; i < keys.length; i++) {
+				// console.log(objAny[keys[i]])
+				// if (objAny[keys[i]] == undefined) {
+				// 	console.log(objAny)
+				// } else {
+				findConfInObj(keys[i], objAny[keys[i]])
+				// }
+			}
+		}
 	}
+}
+async function genSpecialHeads() {
+	for (let key in specialDefineList) {
+		genOneSpecialHead(key,
+			specialDefineList[key])
+	}
+}
+async function genOneSpecialHead(headName: string, arr: any[]) {
+	var definestr = ""
+	for (var i = 0; i < arr.length; i++) {
+		definestr = definestr + "#define " + arr[i].label.toString() + " " + arr[i].value.toString() + "\r\n"
+	}
+	log.app("special define " + headName + " " + definestr)
+	var wsedit = new vscode.WorkspaceEdit();
+	const uri = vscode.Uri.file(getWsPath() + "/" + confValues.libConfFilePath + "/" + headName);
+	let folder = getWsPath() + "/" + confValues.libConfFilePath
+	fs.mkdir(folder, () => {
+		vscode.workspace.findFiles(
+			uri.path
+		).then(
+			async result => {
+				console.log(result)
+				if (result.length == 0) {
+					wsedit.createFile(uri);
+					await vscode.workspace.applyEdit(wsedit)
+				}
+
+				console.log("definestr", definestr)
+				vscode.workspace.openTextDocument(uri).then((document) => {
+					var firstLine = document.lineAt(0);
+					var lastLine = document.lineAt(document.lineCount - 1);
+					var textRange = new vscode.Range(firstLine.range.start, lastLine.range.end);
+					wsedit = new vscode.WorkspaceEdit();
+					wsedit.get(uri)
+					wsedit.delete(uri, textRange)
+					wsedit.insert(uri, new vscode.Position(0, 0), definestr)
+
+					vscode.workspace.applyEdit(wsedit).then(() => {
+						// vscode.window.showTextDocument(uri);
+						// vscode.window.showInformationMessage('请按照模板编辑，并且移除模板内容');
+					})
+				})
+
+
+			})
+	})
+
 }
 async function genHeadFile() {
 	await updateSettingsToVar()
 	let treenode: any = finalTree
 	const jsonuri = vscode.Uri.file(getWsPath() + "/.vscode/" + "libHelperTree.json");
-	vscode.workspace.openTextDocument(jsonuri).then((document) => {
+	let document = await vscode.workspace.openTextDocument(jsonuri)
 
-		let text = document.getText();
-		if (text.match(/^\s*$/)) {
-			text = "{}"
+	let text = document.getText();
+	if (text.match(/^\s*$/)) {
+		text = "{}"
+	}
+	try {
+		finalTree = {}
+		oldTree = JSON.parse(text)
+		definelist = []
+		specialDefineList = {}
+		let definelistany: any = definelist
+		findConfInObj("", oldTree)
+		console.log("definelist", definelist)
+		var definestr = ""
+		await genSpecialHeads()
+		for (var i = 0; i < definelistany.length; i++) {
+			definestr = definestr + "#define " + definelistany[i].label.toString() + " " + definelistany[i].value.toString() + "\r\n"
 		}
-		try {
-			finalTree = {}
-			oldTree = JSON.parse(text)
-			definelist = []
-			let definelistany: any = definelist
-			findConfInObj("", oldTree)
-			console.log("definelist", definelist)
-			var definestr = ""
-			for (var i = 0; i < definelistany.length; i++) {
-				definestr = definestr + "#define " + definelistany[i].label.toString() + " " + definelistany[i].value.toString() + "\r\n"
-			}
-			console.log("definestr", definestr)
+		console.log("definestr", definestr)
 
 
-			var wsedit = new vscode.WorkspaceEdit();
-			const jsonuri = vscode.Uri.file(getWsPath() + "/" + confValues.libConfFilePath);
-			console.log("jsonuri", jsonuri)
-
+		var wsedit = new vscode.WorkspaceEdit();
+		const jsonuri = vscode.Uri.file(getWsPath() + "/" + confValues.libConfFilePath + '/' + confValues.defaultConfFileName);
+		console.log("jsonuri", jsonuri)
+		fs.mkdir(getWsPath() + "/" + confValues.libConfFilePath, () => {
 			vscode.workspace.findFiles(
 				jsonuri.path
 			).then(
@@ -228,11 +314,13 @@ async function genHeadFile() {
 
 
 				})
+		})
 
-		} catch {
 
-		}
-	})
+	} catch {
+
+	}
+
 }
 function updateSettingsToVar() {
 	return vscode.workspace.fs.readDirectory(vscode.Uri.file(getWsPath() + "/.vscode")).then(
@@ -266,11 +354,29 @@ function updateSettingsToVar() {
 						&& conf.libSrcPath != undefined
 						&& conf.describeFileName != undefined
 						&& conf.describeFileFolderName != undefined
+						&& conf.defaultConfFileName != undefined
 					) {
 						confValues.libConfFilePath = conf.libConfFilePath
 						confValues.describeFileName = conf.describeFileName
 						confValues.describeFileFolderName = conf.describeFileFolderName
 						confValues.libSrcPath = conf.libSrcPath
+						confValues.defaultConfFileName = conf.defaultConfFileName
+
+
+						if (confValues.libConfFilePath[0] == '.') {
+							confValues.libConfFilePath = confValues.libConfFilePath.substring(1)
+						}
+						if (confValues.libConfFilePath[0] == '/') {
+							confValues.libConfFilePath = confValues.libConfFilePath.substring(1)
+						}
+						/////////////////////
+						if (confValues.libSrcPath[0] == '.') {
+							confValues.libSrcPath = confValues.libSrcPath.substring(1)
+						}
+						if (confValues.libSrcPath[0] == '/') {
+							confValues.libSrcPath = confValues.libSrcPath.substring(1)
+						}
+						//////////////////////
 					} else {
 						vscode.window.showInformationMessage('未配置完整请先配置');
 						return false
@@ -332,16 +438,24 @@ function addToFinalTree(arr: string[], labels: string[]) {
 		var label, state
 		state = 0
 		label = labels[a]
-		if (label.indexOf("|") > -1) {
-			var set = label.split("|")
-			label = set[0]
-			state = set[1]
+		if (label.indexOf("header=") > -1) {
+			state = "Only Use For Gen Header,Don't change"
+		} else {
+			if (label.indexOf("|") > -1) {
+				var set = label.split("|")
+				label = set[0]
+				state = set[1]
+			}
+
+			if (oldtreenode != undefined && oldtreenode[label] != undefined) {
+				state = oldtreenode[label]
+			}
 		}
-		if (oldtreenode != undefined && oldtreenode[label] != undefined) {
-			state = oldtreenode[label]
-		}
+
 		// if (treenode[label] == undefined) {
-		treenode[label] = state
+		if (label != "") {
+			treenode[label] = state
+		}
 		// }
 
 	}
@@ -370,11 +484,17 @@ async function handleOnefile(resultCur: vscode.Uri) {
 		let text = document.getText();
 		var labels = text.replace(/[\r]/g, "").split("\n")
 		var validLabel = [];
-		for (var i = 0; i < labels.length; i++) {
-			if (labels[i].replace(/[\\]/g, "/") != "") {
+		for (let i = 0; i < document.lineCount; i++) {
+			let txt = document.lineAt(i).text
+			if (txt.indexOf('|') > 0 || txt.indexOf('header=') == 0) {
 				validLabel.push(labels[i]);
 			}
 		}
+		// for (var i = 0; i < labels.length; i++) {
+		// 	if (labels[i].replace(/[\\]/g, "/") != "") {
+		// 		validLabel.push(labels[i]);
+		// 	}
+		// }
 		// console.log(arr)
 		addToFinalTree(arr, validLabel)
 	})
@@ -396,10 +516,16 @@ function constructTree() {
 				if (succ) {
 					console.log("start gen tree");
 					console.log(confValues);
-					vscode.workspace.findFiles(
+					let findpath =
 						confValues.libSrcPath + "/**/" +
 						confValues.describeFileFolderName +
 						"/" + confValues.describeFileName
+
+					findpath = findpath.replace('//', '/')
+					log.app(findpath)
+
+					vscode.workspace.findFiles(
+						findpath
 					).then(
 						async result => {
 							console.log(result)
