@@ -216,10 +216,15 @@ async function genSpecialHeads() {
 	}
 }
 async function genOneSpecialHead(headName: string, arr: any[]) {
-	var definestr = ""
+	let headProtect = headName.replace(".", "_")
+	headProtect += "_____"
+
+	var definestr = "#ifndef " + headProtect + "\r\n"
+	definestr += "#define " + headProtect + "\r\n"
 	for (var i = 0; i < arr.length; i++) {
 		definestr = definestr + "#define " + arr[i].label.toString() + " " + arr[i].value.toString() + "\r\n"
 	}
+	definestr += "#endif\r\n"
 	log.app("special define " + headName + " " + definestr)
 	var wsedit = new vscode.WorkspaceEdit();
 	const uri = vscode.Uri.file(getWsPath() + "/" + confValues.libConfFilePath + "/" + headName);
@@ -246,6 +251,7 @@ async function genOneSpecialHead(headName: string, arr: any[]) {
 					wsedit.insert(uri, new vscode.Position(0, 0), definestr)
 
 					vscode.workspace.applyEdit(wsedit).then(() => {
+						document.save()
 						// vscode.window.showTextDocument(uri);
 						// vscode.window.showInformationMessage('请按照模板编辑，并且移除模板内容');
 					})
@@ -274,11 +280,20 @@ async function genHeadFile() {
 		let definelistany: any = definelist
 		findConfInObj("", oldTree)
 		console.log("definelist", definelist)
-		var definestr = ""
+		// var definestr = ""
 		await genSpecialHeads()
+
+		let headProtect = confValues.defaultConfFileName.replace(".", "_")
+		headProtect += "_____"
+
+		var definestr = "#ifndef " + headProtect + "\r\n"
+		definestr += "#define " + headProtect + "\r\n"
+
 		for (var i = 0; i < definelistany.length; i++) {
 			definestr = definestr + "#define " + definelistany[i].label.toString() + " " + definelistany[i].value.toString() + "\r\n"
 		}
+
+		definestr += "#endif\r\n"
 		console.log("definestr", definestr)
 
 
@@ -308,6 +323,7 @@ async function genHeadFile() {
 
 						vscode.workspace.applyEdit(wsedit).then(() => {
 							vscode.window.showTextDocument(jsonuri);
+							document.save()
 							// vscode.window.showInformationMessage('请按照模板编辑，并且移除模板内容');
 						})
 					})
@@ -629,7 +645,7 @@ export function activate(context: vscode.ExtensionContext) {
 	// The command has been defined in the package.json file
 	// Now provide the implementation of the command with registerCommand
 	// The commandId parameter must match the command field in package.json
-	let disposable = vscode.commands.registerCommand('libhelper.editConf', () => {
+	let disposable = vscode.commands.registerCommand('macroDefineHelper.editConf', () => {
 		// The code you place here will be executed every time your command is executed
 		if (vscode.workspace.workspaceFolders) {
 			const wsPath = vscode.workspace.workspaceFolders[0].uri.fsPath;
@@ -639,7 +655,7 @@ export function activate(context: vscode.ExtensionContext) {
 		// Display a message box to the user
 		// vscode.window.showInformationMessage('Hello World from LibHelper!');
 	});
-	let disposable2 = vscode.commands.registerCommand('libhelper.genJsonTree', () => {
+	let disposable2 = vscode.commands.registerCommand('macroDefineHelper.genJsonTree', () => {
 		// The code you place here will be executed every time your command is executed
 		if (vscode.workspace.workspaceFolders) {
 			genTree()
@@ -647,7 +663,7 @@ export function activate(context: vscode.ExtensionContext) {
 		// Display a message box to the user
 		// vscode.window.showInformationMessage('Hello World from LibHelper!');
 	});
-	let disposable3 = vscode.commands.registerCommand('libhelper.genConfHead', () => {
+	let disposable3 = vscode.commands.registerCommand('macroDefineHelper.genConfHead', () => {
 		// The code you place here will be executed every time your command is executed
 		if (vscode.workspace.workspaceFolders) {
 			genHeadFile()
