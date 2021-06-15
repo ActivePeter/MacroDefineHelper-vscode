@@ -3,7 +3,7 @@
 	"publisher": "hanbaoaaa",
 	"displayName": "macroDefineHelper",
 	"description": "help generate define tree view and gen headers",
-	"version": "0.0.2",
+	"version": "0.0.3",
 	"engines": {
 		"vscode": "^1.4.0"
 	},

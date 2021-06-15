@@ -532,8 +532,12 @@ function constructTree() {
 				if (succ) {
 					console.log("start gen tree");
 					console.log(confValues);
+					let part = "/**/"
+					if (confValues.libSrcPath.length == 0) {
+						part = "**/"
+					}
 					let findpath =
-						confValues.libSrcPath + "/**/" +
+						confValues.libSrcPath + part +
 						confValues.describeFileFolderName +
 						"/" + confValues.describeFileName
 
